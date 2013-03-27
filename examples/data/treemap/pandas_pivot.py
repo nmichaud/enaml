@@ -3,7 +3,7 @@
 
 from __future__ import absolute_import
 
-from collections import defaultdict
+from collections import defaultdict, deque
 import csv
 from cStringIO import StringIO
 from itertools import izip, product
@@ -500,6 +500,7 @@ class PandasEngine(HasTraits):
     # Whether this engine should reset its headers.
     _do_reset_headers = Bool(True)
 
+    _cached_walk = None
 
     @classmethod
     def from_frame(cls, frame, aggregates, row_pivots, col_pivots, **traits):
@@ -1081,14 +1082,19 @@ class PandasEngine(HasTraits):
             self.sort_header(self.col_header, *new)
 
     def walk_tree(self):
+        if not self._cached_walk:
+            self._cached_walk = list(self._generate_cached_walk())
+        return iter(self._cached_walk)
+
+    def _generate_cached_walk(self):
         """ Return a breadth first iterator
         """
         aggregates = self.aggregates
         column, aggfunc = aggregates[0]
-        tree = [(1, tuple())]
+        tree = deque([(1, tuple())])
 
         while tree:
-            depth, index = tree.pop()
+            depth, index = tree.popleft()
 
             pt = self._get_pivot_table(aggregates[0], depth, 0).sort(column, ascending=False)[column]
             pt2 = self._get_pivot_table(aggregates[1], depth, 0)[aggregates[1][0]]
@@ -1105,5 +1111,5 @@ class PandasEngine(HasTraits):
             yield (is_leaf, (pt.index, np.asarray(pt)))
 
             if not is_leaf:
-                tree.extend([(depth+1, index+(idx,)) for idx in pt.index])
+                tree.extend(((depth+1, index+(idx,)) for idx in pt.index))
 
