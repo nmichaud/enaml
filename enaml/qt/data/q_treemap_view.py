@@ -5,14 +5,14 @@
 #
 # The full license is in the file COPYING.txt, distributed with this software.
 #------------------------------------------------------------------------------
-import pandas
 import numpy as np
-from itertools import repeat, izip
-from collections import defaultdict
+from itertools import repeat
+from collections import defaultdict, deque
 
 from PyQt4.QtCore import Qt, QRect
 from PyQt4.QtGui import QWidget, QPainter, QColor, QSizePolicy, QFontMetrics
 
+from enaml.dataext import fast_layout
 
 class QTreemapView(QWidget):
 
@@ -130,101 +130,100 @@ class QTreemapView(QWidget):
         """
         painter = QPainter(self)
 
-        cell = QColor(152, 186, 210)
-        top_border = cell.lighter(110)
-        bottom_border = cell.darker(200)
-
         render_depth = self._render_depth
 
         _, top_level_height = self._line_heights[0]
 
-        if self._style == QTreemapView.ClassicStyle:
-            depths = range(render_depth, 0, -1)
-        else:
-            depths = range(0, render_depth+1)
-
-        for depth in depths:
+        for depth in range(1, render_depth+1):
             font, spacing = self._line_heights[depth]
             fm = QFontMetrics(font)
             char_width = fm.averageCharWidth()*2
 
-            for groups in self._rect_cache[depth]:
-                rect = groups[0][1]
-                max_area = float(rect.width()*rect.height())
-                for i, (name, rect, color) in enumerate(groups):
-                    if (self._style == QTreemapView.ClusterStyle or
-                            depth == render_depth):
-                        alpha = ((rect.width()*rect.height())/max_area)*127+127
-                        cell = color
-                        cell.setAlpha(alpha)
-                        painter.fillRect(rect, cell)
+            #name, rect, color = self._rect_cache[depth][0]
+            #max_area = float(rect[2]*rect[3])
 
-                        top_border = cell.lighter(130)
-                        bottom_border = cell.darker(130)
-                        text_pen = cell.darker()
-                        painter.setPen(bottom_border)
-                        painter.drawRect(rect)
-                        #painter.drawPolyline(*[rect.bottomLeft(), rect.bottomRight(),
-                        #                      rect.topRight()])
-                        #painter.setPen(top_border)
-                        #painter.drawPolyline(*[rect.topRight(), rect.topLeft(),
-                        #                      rect.bottomLeft()])
+            for name, rect, color in self._rect_cache[depth]:
+                if (self._style == QTreemapView.ClusterStyle or
+                        depth == render_depth):
+                    rect = QRect(*rect)
+                    cell = QColor(*color)
+                    #alpha = ((rect.width()*rect.height())/max_area)*127+127
+                    #cell.setAlpha(alpha)
+                    painter.fillRect(rect, cell)
 
-                    else:
-                        text_pen = Qt.black
-                        painter.setPen(text_pen)
-                        painter.drawRect(rect)
+                    #top_border = cell.lighter(130)
+                    #bottom_border = cell.darker(130)
+                    #painter.setPen(bottom_border)
+                    #painter.drawRect(rect)
+                    #painter.drawPolyline(*[rect.bottomLeft(), rect.bottomRight(),
+                    #                      rect.topRight()])
+                    #painter.setPen(top_border)
+                    #painter.drawPolyline(*[rect.topRight(), rect.topLeft(),
+                    #                      rect.bottomLeft()])
 
+                else:
                     text_pen = Qt.black
+                    painter.setPen(text_pen)
+                    painter.drawRect(rect)
 
-                    rect = rect.adjusted(3, 2, -5, 0)
-                    if (rect.width() > char_width and
-                        (self._style == QTreemapView.ClusterStyle or
-                         depth in (1, render_depth))):
-                        if depth == 1:
-                            painter.setPen(Qt.black)
-                            painter.setFont(font)
-                        else:
-                            painter.setPen(text_pen)
-                            painter.setFont(font)
-                            if i == 0 and self._style == QTreemapView.ClassicStyle:
-                                max_width = rect.width()
-                                rect.adjust(0, top_level_height, 0, 0)
-                        text = str(name)
-                        painter.drawText(rect, Qt.AlignLeft | Qt.AlignTop, text)
+                text_pen = Qt.black
+
+                rect = rect.adjusted(3, 2, -5, 0)
+                if (rect.width() > char_width and
+                    (self._style == QTreemapView.ClusterStyle or
+                     depth in (1, render_depth))):
+                    if depth == 1:
+                        painter.setPen(Qt.black)
+                        painter.setFont(font)
+                    else:
+                        painter.setPen(text_pen)
+                        painter.setFont(font)
+                    text = str(name)
+                    painter.drawText(rect, Qt.AlignLeft | Qt.AlignTop, text)
 
     def _update_layout(self):
-        """ Recompute treemap layout.
+        """ Recompute treemap squarify layout.
 
         """
-        rect = self.rect().adjusted(1, 1, -1, -1)
         self._rect_cache = defaultdict(list)
-        self.squarifyLayout(rect)
-        self.update()
 
-    def squarifyLayout(self, bounds):
+        bounds = self.rect().adjusted(1, 1, -1, -1)
+        x, y, w, h = bounds.x(), bounds.y(), bounds.width(), bounds.height()
+
         tree_iter = self._engine.walk_tree()
-        _process_list = [(bounds, 1)]
+        _process_list = deque([((x, y, w, h), 1)])
 
-        while _process_list:
-            bounds, depth = _process_list.pop()
-            x, y, w, h = bounds.x(), bounds.y(), bounds.width(), bounds.height()
+        pl_len = _process_list.__len__
+        pl_pop = _process_list.popleft
+        pl_extend = _process_list.extend
 
-            is_leaf, (index, pt) = tree_iter.next()
+        tn = tree_iter.next
 
-            rects = self._layout(pt, x, y, w, h)
+        colormap = self._cm.map_screen
 
-            self._rect_cache[depth].append(
-                zip(index, rects, repeat(QColor(125, 125, 125)))
+        layout = fast_layout
+
+        while pl_len():
+            (x, y, w, h), depth = pl_pop()
+
+            is_leaf, (index, pt, pt2) = tn()
+
+            rects = layout(pt, x, y, w, h)
+
+            self._rect_cache[depth].extend(
+                zip(index, rects, colormap(pt2)*255),
             )
 
             if not is_leaf:
-                for rect in rects:
-                    # Account for text labels
-                    if self._style == QTreemapView.ClusterStyle:
-                        _, line_height = self._line_heights[depth]
-                        rect = rect.adjusted(5, line_height + 6, -5, -5)
-                    _process_list.append((rect, depth+1))
+                d = depth + 1
+                if self._style == QTreemapView.ClusterStyle:
+                    _, line_height = self._line_heights[depth]
+                    height = line_height + 6
+                    pl_extend((((x+5,y+height,w-10,h-height-5), d) for x, y, w, h, in rects))
+                else:
+                    pl_extend(((r, d) for r in rects))
+
+        self.update()
 
     def _layout(self, pt, x, y, w, h):
         size = len(pt)
@@ -262,13 +261,13 @@ class QTreemapView(QWidget):
             accum[1:] += heights.cumsum()[:-1]
             # Account for rounding errors
             heights[-1] -= round(sum(heights - height * factors))
-            rects = [QRect(x, a, width, h) for a, h in zip(accum, heights)]
+            rects = [(x, a, width, h) for a, h in zip(accum, heights)]
         else:
             widths = np.round(width * factors)
             accum = x + np.zeros(len(factors))
             accum[1:] += widths.cumsum()[:-1]
             # Account for rounding errors
             widths[-1] -= round(sum(widths - width * factors))
-            rects = [QRect(a, y, w, height) for a, w in zip(accum, widths)]
+            rects = [(a, y, w, height) for a, w in zip(accum, widths)]
 
         return rects
