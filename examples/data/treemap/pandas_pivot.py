@@ -1100,8 +1100,10 @@ class PandasEngine(HasTraits):
                     pt = pt.ix[i]
                     pt2 = pt2.ix[i]
 
-            yield (pt.index, np.asarray(pt))
+            is_leaf = not depth < self.max_depth
 
-            if depth < self.max_depth:
+            yield (is_leaf, (pt.index, np.asarray(pt)))
+
+            if not is_leaf:
                 tree.extend([(depth+1, index+(idx,)) for idx in pt.index])
 

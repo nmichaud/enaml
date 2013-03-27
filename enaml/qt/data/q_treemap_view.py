@@ -210,7 +210,7 @@ class QTreemapView(QWidget):
             bounds, depth = _process_list.pop()
             x, y, w, h = bounds.x(), bounds.y(), bounds.width(), bounds.height()
 
-            index, pt = tree_iter.next()
+            is_leaf, (index, pt) = tree_iter.next()
 
             rects = self._layout(pt, x, y, w, h)
 
@@ -218,7 +218,7 @@ class QTreemapView(QWidget):
                 zip(index, rects, repeat(QColor(125, 125, 125)))
             )
 
-            if depth < self._engine.max_depth:
+            if not is_leaf:
                 for rect in rects:
                     # Account for text labels
                     if self._style == QTreemapView.ClusterStyle:
