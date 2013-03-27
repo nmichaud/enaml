@@ -20,9 +20,9 @@ ext_modules = [
         language='c++',
     ),
     Extension(
-       'enaml.signaling',
-       ['enaml/src/signaling.cpp'],
-       language='c++',
+        'enaml.signaling',
+        ['enaml/src/signaling.cpp'],
+        language='c++',
     ),
     Extension(
         'enaml.core.funchelper',
@@ -38,7 +38,12 @@ ext_modules = [
         'enaml.fontext',
         ['enaml/src/fontext.cpp'],
         language='c++',
-    )
+    ),
+    Extension(
+        'enaml.dataext',
+        ['enaml/src/dataext.cpp'],
+        language='c++',
+    ),
 ]
 
 
