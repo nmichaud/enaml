@@ -6,21 +6,15 @@
 # The full license is in the file COPYING.txt, distributed with this software.
 #------------------------------------------------------------------------------
 import numpy as np
-from itertools import repeat
 from collections import defaultdict, deque
 
-from PyQt4.QtCore import Qt, QRect
+from PyQt4.QtCore import Qt, QRectF
 from PyQt4.QtGui import QWidget, QPainter, QColor, QSizePolicy, QFontMetrics
 
 from enaml.dataext import fast_layout
 
+
 class QTreemapView(QWidget):
-
-    #: Render the tree map in classic style
-    ClassicStyle = 0
-
-    #: Render the tree map in cluster style
-    ClusterStyle = 1
 
     def __init__(self, parent=None):
         super(QTreemapView, self).__init__(parent)
@@ -30,7 +24,6 @@ class QTreemapView(QWidget):
         self._engine = None
         self._rect_cache = defaultdict(list)
         self._render_depth = 0
-        self._style = QTreemapView.ClusterStyle
 
         font = self.font()
         font.setPointSize(8)
@@ -79,33 +72,6 @@ class QTreemapView(QWidget):
         self._render_depth = engine.max_depth
         self._update_layout()
 
-    def style(self):
-        """ Get the style of the treemap.
-
-        Returns
-        -------
-        result : int
-            The current style of the treemap.
-
-        """
-        return self._style
-
-    def setStyle(self, style):
-        """ Set the style of the treemap.
-
-        The default style is ClusterStyle.
-
-        Parameters
-        ----------
-        style : int
-            One of QTreemapView.ClassicStyle or QTreemapView.ClusterStyle.
-
-        """
-        valid = (QTreemapView.ClassicStyle, QTreemapView.ClusterStyle)
-        assert style in valid
-        self._style = style
-        self._update_layout()
-
     def setDepth(self, depth):
         """ Set the currently rendered depth of the QTreemapView.
 
@@ -134,8 +100,17 @@ class QTreemapView(QWidget):
 
         _, top_level_height = self._line_heights[0]
 
+        fillRect = painter.fillRect
+        drawRect = painter.drawRect
+        setPen = painter.setPen
+        drawText = painter.drawText
+
+        text_pen = Qt.black
+
         for depth in range(1, render_depth+1):
             font, spacing = self._line_heights[depth]
+            painter.setFont(font)
+
             fm = QFontMetrics(font)
             char_width = fm.averageCharWidth()*2
 
@@ -143,43 +118,26 @@ class QTreemapView(QWidget):
             #max_area = float(rect[2]*rect[3])
 
             for name, rect, color in self._rect_cache[depth]:
-                if (self._style == QTreemapView.ClusterStyle or
-                        depth == render_depth):
-                    rect = QRect(*rect)
-                    cell = QColor(*color)
-                    #alpha = ((rect.width()*rect.height())/max_area)*127+127
-                    #cell.setAlpha(alpha)
-                    painter.fillRect(rect, cell)
+                rect = QRectF(*rect)
+                cell = QColor(*color)
+                #alpha = ((rect.width()*rect.height())/max_area)*127+127
+                #cell.setAlpha(alpha)
+                fillRect(rect, cell)
 
-                    #top_border = cell.lighter(130)
-                    #bottom_border = cell.darker(130)
-                    #painter.setPen(bottom_border)
-                    #painter.drawRect(rect)
-                    #painter.drawPolyline(*[rect.bottomLeft(), rect.bottomRight(),
-                    #                      rect.topRight()])
-                    #painter.setPen(top_border)
-                    #painter.drawPolyline(*[rect.topRight(), rect.topLeft(),
-                    #                      rect.bottomLeft()])
-
-                else:
-                    text_pen = Qt.black
-                    painter.setPen(text_pen)
-                    painter.drawRect(rect)
-
-                text_pen = Qt.black
+                border = cell.darker(130)
+                painter.setPen(border)
+                drawRect(rect)
+                #painter.drawPolyline(*[rect.bottomLeft(), rect.bottomRight(),
+                #                      rect.topRight()])
+                #painter.setPen(top_border)
+                #painter.drawPolyline(*[rect.topRight(), rect.topLeft(),
+                #                      rect.bottomLeft()])
 
                 rect = rect.adjusted(3, 2, -5, 0)
-                if (rect.width() > char_width and
-                    (self._style == QTreemapView.ClusterStyle or
-                     depth in (1, render_depth))):
-                    if depth == 1:
-                        painter.setPen(Qt.black)
-                        painter.setFont(font)
-                    else:
-                        painter.setPen(text_pen)
-                        painter.setFont(font)
+                if (rect.width() > char_width):
+                    setPen(text_pen)
                     text = str(name)
-                    painter.drawText(rect, Qt.AlignLeft | Qt.AlignTop, text)
+                    drawText(rect, Qt.AlignLeft | Qt.AlignTop, text)
 
     def _update_layout(self):
         """ Recompute treemap squarify layout.
@@ -215,13 +173,11 @@ class QTreemapView(QWidget):
             )
 
             if not is_leaf:
+                _, line_height = self._line_heights[depth]
+                height = line_height + 6
                 d = depth + 1
-                if self._style == QTreemapView.ClusterStyle:
-                    _, line_height = self._line_heights[depth]
-                    height = line_height + 6
-                    pl_extend((((x+5,y+height,w-10,h-height-5), d) for x, y, w, h, in rects))
-                else:
-                    pl_extend(((r, d) for r in rects))
+                pl_extend((((x + 5, y + height, w - 10, h - height - 5), d)
+                          for x, y, w, h, in rects))
 
         self.update()
 
