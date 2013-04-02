@@ -5,7 +5,6 @@
 #
 # The full license is in the file COPYING.txt, distributed with this software.
 #------------------------------------------------------------------------------
-import numpy as np
 from collections import defaultdict, deque
 
 from PyQt4.QtCore import Qt, QRectF
@@ -180,50 +179,3 @@ class QTreemapView(QWidget):
                           for x, y, w, h, in rects))
 
         self.update()
-
-    def _layout(self, pt, x, y, w, h):
-        size = len(pt)
-        if size == 0:
-            return []
-        elif (size < 2):
-            return self._slice_layout(pt, x, y, w, h)
-
-        factors = pt / pt.sum()
-        f_accum = factors.cumsum()
-
-        if (w < h):
-            aspects = (h * f_accum) / (w * factors / f_accum)
-            aspects[aspects < 1] = 1 / aspects
-            mid = np.argmin(aspects)
-            b = f_accum[mid]
-
-            rects = self._slice_layout(pt[:mid + 1], x, y, w, round(h * b))
-            return rects + self._layout(pt[mid + 1:], x, y + round(h * b),w,round(h * (1 - b)))
-        else:
-            aspects = (w * f_accum) / (h * factors / f_accum)
-            aspects[aspects < 1] = 1 / aspects
-            mid = np.argmin(aspects)
-            b = f_accum[mid]
-
-            rects = self._slice_layout(pt[:mid + 1], x, y, round(w * b), h)
-            return rects + self._layout(pt[mid + 1:], x + round(w * b), y, round(w * (1 - b)),h)
-
-    def _slice_layout(self, pt, x, y, width, height):
-        factors = pt / pt.sum()
-
-        if width <= height:
-            heights = np.round(height * factors)
-            accum = y + np.zeros(len(factors))
-            accum[1:] += heights.cumsum()[:-1]
-            # Account for rounding errors
-            heights[-1] -= round(sum(heights - height * factors))
-            rects = [(x, a, width, h) for a, h in zip(accum, heights)]
-        else:
-            widths = np.round(width * factors)
-            accum = x + np.zeros(len(factors))
-            accum[1:] += widths.cumsum()[:-1]
-            # Account for rounding errors
-            widths[-1] -= round(sum(widths - width * factors))
-            rects = [(a, y, w, height) for a, w in zip(accum, widths)]
-
-        return rects
