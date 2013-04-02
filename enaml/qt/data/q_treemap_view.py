@@ -21,7 +21,7 @@ class QTreemapView(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self._engine = None
-        self._rect_cache = defaultdict(list)
+        self._rect_cache = None
         self._render_depth = 0
 
         font = self.font()
@@ -106,7 +106,7 @@ class QTreemapView(QWidget):
 
         text_pen = Qt.black
 
-        for depth in range(1, render_depth+1):
+        for depth in range(0, render_depth):
             font, spacing = self._line_heights[depth]
             painter.setFont(font)
 
@@ -142,13 +142,13 @@ class QTreemapView(QWidget):
         """ Recompute treemap squarify layout.
 
         """
-        self._rect_cache = defaultdict(list)
+        self._rect_cache = [[] for i in range(self._engine.max_depth)]
 
         bounds = self.rect().adjusted(1, 1, -1, -1)
         x, y, w, h = bounds.x(), bounds.y(), bounds.width(), bounds.height()
 
         tree_iter = self._engine.walk_tree()
-        _process_list = deque([((x, y, w, h), 1)])
+        _process_list = deque([((x, y, w, h), 0)])
 
         pl_len = _process_list.__len__
         pl_pop = _process_list.popleft
