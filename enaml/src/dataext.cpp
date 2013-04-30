@@ -63,9 +63,12 @@ slice_layout(double array[], PyListPtr& rects,
         }
         accum += factor;
 
-        PyObjectPtr bounds( PyTuple_Pack(
-            4, PyFloat_FromDouble(newx), PyFloat_FromDouble(newy),
-            PyFloat_FromDouble(newwidth), PyFloat_FromDouble(newheight)) );
+        PyObjectPtr x(PyFloat_FromDouble(newx));
+        PyObjectPtr y(PyFloat_FromDouble(newy));
+        PyObjectPtr w(PyFloat_FromDouble(newwidth));
+        PyObjectPtr h(PyFloat_FromDouble(newheight));
+
+        PyObjectPtr bounds(PyTuple_Pack(4, x.get(), y.get(), w.get(), h.get()));
         rects.set_item(idx, bounds);
     }
 }
