@@ -68,6 +68,7 @@ class QPivotSelector(QWidget):
         self._hand_cursor = QCursor(Qt.OpenHandCursor)
         self._drag_cursor = QCursor(Qt.SizeHorCursor)
         self._hover_item = False
+        self._widths = []
 
     def items(self):
         """ Get the current items.
