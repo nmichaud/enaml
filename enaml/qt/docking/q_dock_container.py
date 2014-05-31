@@ -8,7 +8,9 @@
 from atom.api import Typed, Bool
 
 from enaml.qt.QtCore import Qt, QMargins, QPoint, QRect, QEvent, Signal
-from enaml.qt.QtGui import QApplication, QLayout, QIcon, QCursor
+from enaml.qt.QtGui import (
+    QApplication, QLayout, QIcon, QCursor, QColor, QGraphicsDropShadowEffect
+)
 
 from .event_types import QDockItemEvent, DockItemUndocked
 from .q_dock_area import QDockArea
@@ -360,6 +362,11 @@ class QDockContainer(QDockFrame):
 
         """
         item = self.dockItem()
+        self._shadow = shadow = QGraphicsDropShadowEffect(self)
+        shadow.setOffset(1, 1)
+        shadow.setBlurRadius(8)
+        shadow.setColor(QColor(100,100,100,180))
+        item.setGraphicsEffect(shadow)
         if item is not None:
             item.titleBarWidget().show()
 
@@ -370,6 +377,7 @@ class QDockContainer(QDockFrame):
 
         """
         item = self.dockItem()
+        item.setGraphicsEffect(None)
         if item is not None:
             item.titleBarWidget().hide()
 
