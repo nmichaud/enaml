@@ -2,7 +2,7 @@
 from enaml.qt.qt.QtCore import Qt, QRect, QSize, QPoint, QEvent, Signal
 from enaml.qt.qt.QtGui import (
     QApplication, QCursor, QPainter, QWidget, QPen, QStyle, QColor,
-    QSizePolicy,
+    QSizePolicy, QPolygon
     )
 
 
@@ -119,7 +119,7 @@ class PivotSelector(QWidget):
                 tr = rect.topRight() + QPoint(margin/2 + 1, -sh/2)
                 br = rect.bottomRight() + QPoint(margin/2 + 1, sh/2+2)
                 offset = QPoint(8, 0)
-                painter.drawPolyline([tr-offset, tr, br, br-offset])
+                painter.drawPolyline(QPolygon([tr-offset, tr, br, br-offset]))
                 if self._hover_selector:
                     offset = QPoint(4, 0)
                     painter.drawLine(tr-offset, br-offset)
